@@ -1,16 +1,35 @@
 # utils/dictionary.py
 import inspect
 import pymorphy2
+import os
 
-# --- ФИКС ДЛЯ PYTHON 3.11+ ---
+# --- ФИКС ДЛЯ PYTHON 3.11+ (inspect) ---
 if not hasattr(inspect, 'getargspec'):
     def _getargspec(func):
         spec = inspect.getfullargspec(func)
         return spec.args, spec.varargs, spec.varkw, spec.defaults
     inspect.getargspec = _getargspec
-# -----------------------------
+# ---------------------------------------
 
-morph = pymorphy2.MorphAnalyzer()
+# --- ФИКС ДЛЯ PYTHON 3.12+ (pkg_resources) ---
+# pymorphy2 пытается использовать pkg_resources, которого нет.
+# Мы указываем путь к словарям вручную.
+try:
+    import pymorphy2_dicts_ru
+    # Получаем путь к данным словаря напрямую
+    if hasattr(pymorphy2_dicts_ru, 'get_path'):
+        dic_path = pymorphy2_dicts_ru.get_path()
+    else:
+        dic_path = os.path.join(os.path.dirname(pymorphy2_dicts_ru.__file__), 'data')
+    
+    # Инициализируем анализатор с явным путем
+    morph = pymorphy2.MorphAnalyzer(path=dic_path)
+except Exception as e:
+    print(f"⚠️ Ошибка ручной загрузки словаря ({e}). Пробуем стандартный метод...")
+    morph = pymorphy2.MorphAnalyzer()
+# ---------------------------------------------
+
+morph = pymorphy2.MorphAnalyzer() if 'morph' not in locals() else morph
 
 # Список запрещенных слов
 BAD_WORDS = {
@@ -24,7 +43,6 @@ def check_word(word: str) -> dict:
     1. Не мат.
     2. Знакомое слово.
     3. Существительное (NOUN).
-    Падеж больше не проверяем!
     """
     # 1. Проверка на мат
     if word in BAD_WORDS:
@@ -48,6 +66,4 @@ def check_word(word: str) -> dict:
         pos_ru = pos_map.get(pos, 'не существительное')
         return {'valid': False, 'error': f"⚠️ Это {pos_ru}, а нужно <b>существительное</b> (кто? что?)."}
         
-    # Проверка падежа удалена по просьбе
-
     return {'valid': True, 'error': None}
