@@ -1,4 +1,5 @@
 aiogram>=3.0.0
 pymorphy2>=0.9.1
 DAWG-Python>=0.7.2 
+setuptools
 aiosqlite>=0.17.0
