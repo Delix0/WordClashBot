@@ -4,8 +4,6 @@ import random
 from aiogram import Router, F, types
 from aiogram.filters import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-# Импортируем инструмент для удаления кнопок
-from aiogram.types import ReplyKeyboardRemove 
 
 from store import games
 from utils.game_logic import start_round
@@ -13,13 +11,6 @@ import config
 import database
 
 router = Router()
-
-# --- КОМАНДА ДЛЯ УДАЛЕНИЯ КНОПОК ---
-@router.message(Command("reset"))
-async def cmd_reset(message: types.Message):
-    # Просто убирает клавиатуру, если она есть у пользователя
-    await message.answer("🗑 Клавиатура убрана.", reply_markup=ReplyKeyboardRemove())
-# -----------------------------------
 
 @router.message(Command("startgame"))
 async def cmd_startgame(message: types.Message):
@@ -42,7 +33,6 @@ async def cmd_startgame(message: types.Message):
     builder = InlineKeyboardBuilder()
     builder.button(text="Присоединиться", callback_data="join_game")
     
-    # При старте игры тоже на всякий случай чистим экран создателя от старых кнопок
     await message.answer(
         "📢 <b>Набор в игру «Слова»!</b>\n\n"
         "Жмите кнопку, чтобы участвовать.\n"
@@ -137,8 +127,7 @@ async def cmd_stopgame(message: types.Message):
     if game.get('start_task'): game['start_task'].cancel()
     
     del games[chat_id]
-    # При остановке тоже очищаем, чтобы не мешало
-    await message.answer("🛑 Игра остановлена участником.", reply_markup=ReplyKeyboardRemove())
+    await message.answer("🛑 Игра остановлена участником.")
 
 @router.message(Command("surrender"))
 async def cmd_surrender(message: types.Message, bot):
@@ -198,8 +187,8 @@ async def cmd_help(message: types.Message):
         "/startgame — Начать новый раунд\n"
         "/surrender — Сдаться (выбыть из текущей игры)\n"
         "/top — Посмотреть таблицу лидеров\n"
-        "/stopgame — Экстренно остановить игру\n"
+        "/stopgame — Экстренно остановить игру (только для участников)\n\n"
+        "📞 <b>Связь с админом:</b> @Delix0"
     )
     
-    # Тут тоже добавляем удаление кнопок, чтобы при вызове справки экран чистился
-    await message.answer(text, parse_mode="HTML", reply_markup=ReplyKeyboardRemove())
+    await message.answer(text, parse_mode="HTML")
