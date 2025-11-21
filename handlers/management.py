@@ -1,8 +1,11 @@
+# handlers/management.py
 import asyncio
 import random
 from aiogram import Router, F, types
 from aiogram.filters import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+# Импортируем инструмент для удаления кнопок
+from aiogram.types import ReplyKeyboardRemove 
 
 from store import games
 from utils.game_logic import start_round
@@ -10,6 +13,13 @@ import config
 import database
 
 router = Router()
+
+# --- КОМАНДА ДЛЯ УДАЛЕНИЯ КНОПОК ---
+@router.message(Command("reset"))
+async def cmd_reset(message: types.Message):
+    # Просто убирает клавиатуру, если она есть у пользователя
+    await message.answer("🗑 Клавиатура убрана.", reply_markup=ReplyKeyboardRemove())
+# -----------------------------------
 
 @router.message(Command("startgame"))
 async def cmd_startgame(message: types.Message):
@@ -32,6 +42,7 @@ async def cmd_startgame(message: types.Message):
     builder = InlineKeyboardBuilder()
     builder.button(text="Присоединиться", callback_data="join_game")
     
+    # При старте игры тоже на всякий случай чистим экран создателя от старых кнопок
     await message.answer(
         "📢 <b>Набор в игру «Слова»!</b>\n\n"
         "Жмите кнопку, чтобы участвовать.\n"
@@ -66,7 +77,6 @@ async def cb_join(callback: types.CallbackQuery, bot):
     await callback.message.answer(f"✅ {user.full_name} в деле! (Всего: {len(game['players'])})")
     await callback.answer()
 
-    # Если это первый игрок - запускаем таймер
     if len(game['players']) == 1:
         game['start_task'] = asyncio.create_task(auto_start_timer(bot, chat_id))
 
@@ -79,7 +89,7 @@ async def start_game_logic(bot, chat_id):
     if not game or game['status'] != 'registration':
         return
 
-    game['start_task'] = None # Сбрасываем задачу
+    game['start_task'] = None
 
     if len(game['players']) < 2:
         await bot.send_message(chat_id, "❌ Мало игроков (нужно минимум 2). Набор отменен.")
@@ -88,7 +98,6 @@ async def start_game_logic(bot, chat_id):
 
     game['status'] = 'running'
     
-    # --- Жеребьевка ---
     random.shuffle(game['players'])
     game['current_player_index'] = 0
     first_player = game['players'][0]
@@ -114,7 +123,6 @@ async def cmd_stopgame(message: types.Message):
     
     user_id = message.from_user.id
     
-    # --- ПРОВЕРКА: Участвует ли игрок в игре? ---
     is_participant = False
     for p in game['players']:
         if p['id'] == user_id:
@@ -124,13 +132,13 @@ async def cmd_stopgame(message: types.Message):
     if not is_participant:
         await message.answer("⛔ Остановить игру могут только её участники!")
         return
-    # --------------------------------------------
     
     if game.get('timer_task'): game['timer_task'].cancel()
     if game.get('start_task'): game['start_task'].cancel()
     
     del games[chat_id]
-    await message.answer("🛑 Игра остановлена участником.")
+    # При остановке тоже очищаем, чтобы не мешало
+    await message.answer("🛑 Игра остановлена участником.", reply_markup=ReplyKeyboardRemove())
 
 @router.message(Command("surrender"))
 async def cmd_surrender(message: types.Message, bot):
@@ -190,7 +198,8 @@ async def cmd_help(message: types.Message):
         "/startgame — Начать новый раунд\n"
         "/surrender — Сдаться (выбыть из текущей игры)\n"
         "/top — Посмотреть таблицу лидеров\n"
-        "/stopgame — Экстренно остановить игру (только для участников)"
+        "/stopgame — Экстренно остановить игру\n"
     )
     
-    await message.answer(text, parse_mode="HTML")
+    # Тут тоже добавляем удаление кнопок, чтобы при вызове справки экран чистился
+    await message.answer(text, parse_mode="HTML", reply_markup=ReplyKeyboardRemove())
